@@ -1,0 +1,135 @@
+---
+ #Caso Pŕactico Final Evaluable
+---
+
+Tomaremos el dataset Salaries.csv
+
+El conjunto de datos consiste en los salarios de nueve meses recogidos de 397 profesores universitarios en los EE.UU. durante 2008 y 2009. Además de los salarios, también se recogió el rango del profesor, el sexo, la disciplina, los años desde el doctorado y los años de servicio. Así, hay un total de 6 variables, que se describen a continuación.
+
+      1. rank: Categórica - de profesor asistente, profesor asociado o catedrático
+      2. discipline: Categórica - Tipo de departamento en el que trabaja el profesor, ya sea aplicado (B) o teórico (A)
+      3. yrs.since.phd: Continuo - Número de años desde que el profesor obtuvo su doctorado
+      4. yrs.service: Continuo - Número de años que el profesor ha prestado servicio al departamento y/o a la universidad
+      5. sex: Categórico - Sexo del profesor, hombre o mujer
+      6. salary: Continuo - Sueldo de nueve meses del profesor (USD)
+
+El objetivo de esta práctica consiste en realizar un estudio íntegro del dataset para terminar implementando un modelo lineal regularizado que realice predicciones sobre el salario a percibir de un profesor. Asimismo, se pedirá aprovechar la explicabilidad de estos modelos y los estudios estadísticos realizados para arrojar intuiciones y dependencias en los datos.
+
+Para ello, se pide al estudiante que realice los siguientes pasos:
+
+1. Carga los datos. Realiza una inspección por variables de la distribución de salarios en función de cada atributo visualmente. Realiza las observaciones pertinentes. ¿Qué variables son mejores para separar los datos?
+
+```{r}
+
+ #Primero, carguemos los datos y exploremos visualmente la distribución de los salarios en función de cada atributo. Luego, podemos hacer observaciones pertinentes sobre cuáles variables parecen ser mejores para separar los datos.
+
+data <- read.csv("Salaries.csv")
+
+
+ #Instalamos y cargamos las librerías necesarias.
+
+install.packages("ggplot2")
+library(ggplot2)
+
+ #Visualizamos la distribución de salarios en función de cada atributo.
+
+ggplot(data, aes(x = salary)) +
+  geom_density() +
+  facet_wrap(~ discipline, scales = "free") +
+  labs(title = "Distribución de salarios por disciplina")
+
+ggplot(data, aes(x = salary)) +
+  geom_density() +
+  facet_wrap(~ rank, scales = "free") +
+  labs(title = "Distribución de salarios por rangos")
+
+ggplot(data, aes(x = salary)) +
+  geom_density() +
+  facet_wrap(~ sex, scales = "free") +
+  labs(title = "Distribución de salarios por sexo")
+
+ #Después de observar los gráficos de distribución, podemos hacer algunas observaciones:
+
+ #La variable "discipline" arroja información relevante, puesto que se ve una clara diferencia salarios/disciplinas.
+
+ #La variable "rank" también parece ser útil, ya que hay diferentes rangos de salario para diferentes niveles de rango.
+
+ #La variable "sex" al igual que "discipline" arroja buena información sobre las diferencias en cuanto a salarios/sexo.
+
+
+```
+2. ¿Podemos emplear un test paramétrico para determinar si las medias de salarios entre hombres y mujeres son las mismas o difieren? Ten en cuenta que, en tanto que se pide usar un test paramétrico, se deberá determinar si las muestras cumplen con las hipótesis necesarias.
+
+```{r}
+
+ #Sí, podemos emplear un test paramétrico como la prueba t de Student para determinar si las medias de salarios entre hombres y mujeres son las mismas o difieren. Sin embargo, antes de aplicar la prueba t, debemos verificar si las muestras cumplen con las hipótesis necesarias, como la normalidad y la igualdad de varianzas.
+
+```
+3. Divide el dataset tomando las primeras 317 instancias como train y las últimas 80 como test. Entrena un modelo de regresión lineal con regularización Ridge y Lasso en train seleccionando el que mejor **MSE** tenga. Da las métricas en test. Valora el uso del One Hot Encoder, en caso de emplearlo arguméntalo.
+
+```{r}
+
+ #Podemos dividir el conjunto de datos y entrenar modelos de regresión lineal con regularización Ridge y Lasso. El uso de One Hot Encoding podría ser útil si hay variables categóricas que no pueden ser directamente utilizadas en el modelo de regresión lineal.
+
+ #Dividimos el dataset.
+
+train <- data[1:317, ]
+test <- data[318:397, ]
+
+ #Instalamos y cargamos las librerías necesarias.
+
+install.packages("glmnet")
+library(glmnet)
+
+ #One Hot Encoding si es necesario.
+ #Aplicamos One Hot Encoding solo a la variable "discipline" ya que es categórica.
+
+if (class(train$discipline) == "factor") {
+  train <- cbind(train, model.matrix(~ discipline - 1, data = train))
+  test <- cbind(test, model.matrix(~ discipline - 1, data = test))
+}
+
+ #Entrenamos modelos de regresión lineal con regularización Ridge y Lasso.
+
+ridge <- cv.glmnet(as.matrix(train[, -c(1, 4)]), train$salary, alpha = 0)
+lasso <- cv.glmnet(as.matrix(train[, -c(1, 4)]), train$salary, alpha = 1)
+
+ #Calculamos MSE en test.
+
+ridge_pred <- predict(ridge, newx = as.matrix(test[, -c(1, 4)]))
+lasso_pred <- predict(lasso, newx = as.matrix(test[, -c(1, 4)]))
+
+ridge_mse <- mean((test$salary - ridge_pred)^2)
+lasso_mse <- mean((test$salary - lasso_pred)^2)
+
+print(paste("MSE para Ridge:", ridge_mse))
+print(paste("MSE para Lasso:", lasso_mse))
+
+
+```
+4. Estudia la normalidad de los residuos del modelo resultante, ¿detectas algún sesgo?
+
+```{r}
+
+ #Podemos estudiar la normalidad de los residuos del modelo resultante utilizando gráficos de distribución y pruebas estadísticas como la prueba de normalidad de Shapiro-Wilk. Si los residuos no siguen una distribución normal, podría indicar un sesgo en el modelo.
+
+ #Obtenemos los residuos de los modelos.
+
+ridge_residuos <- test$salary - ridge_pred
+lasso_residuos <- test$salary - lasso_pred
+
+ #Prueba de normalidad de Shapiro-Wilk.
+
+print(shapiro.test(ridge_residuos))
+print(shapiro.test(lasso_residuos))
+
+```
+5. ¿Qué conclusiones extraes de este estudio y del modelo implementado? ¿Consideras correcto el rendimiento del mismo?
+
+```{r}
+
+ #Las conclusiones pueden variar dependiendo de los resultados específicos obtenidos en el análisis. Si los modelos de regresión lineal con regularización Ridge y Lasso tienen un MSE similar y los residuos se distribuyen normalmente, podríamos concluir que ambos modelos son igualmente efectivos en este conjunto de datos. Sin embargo, si hay una gran diferencia en el MSE o si los residuos no se distribuyen normalmente, necesitaríamos una evaluación más detallada para determinar la causa y si el rendimiento del modelo es adecuado. Dicho esto vemos que hay un sesgo positivo y sería interesante tener más datos para un mejor análisis, puede que algunos "salarios outliers" esten influyendo en los resultados.
+
+```
+
+
